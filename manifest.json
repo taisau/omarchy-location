@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "io.github.taisau.location",
   "name": "Location",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "John Boyd",
   "license": "MIT",
-  "description": "Multi-source location resolver for the Omarchy bar: WiFi positioning, Home Assistant device trackers (phone GPS, vehicle GPS), a local geolocation endpoint for Firefox, and a per-source status panel.",
+  "description": "Multi-source location resolver for the Omarchy bar: WiFi positioning, Home Assistant device trackers (phone GPS, vehicle GPS), a local geolocation endpoint for Firefox, and a per-source status panel. Indicator-style bar chip (center cluster).",
   "kinds": [
     "bar-widget"
   ],
@@ -17,7 +17,7 @@
     "description": "Current fix from configured sources, per-source status, and settings.",
     "category": "Utilities",
     "allowMultiple": false,
-    "defaultSection": "right",
+    "defaultSection": "center",
     "defaults": {
       "pollIntervalSec": 10,
       "staleMinutes": 10

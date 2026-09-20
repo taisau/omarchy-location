@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import Quickshell
 import qs.Commons
 import qs.Ui
@@ -7,9 +6,20 @@ import qs.Ui
 BarWidget {
   id: root
   moduleName: "io.github.taisau.location"
+  implicitWidth: button.implicitWidth
+  implicitHeight: button.implicitHeight
 
   readonly property var panelItem: panelLoader.item
   readonly property bool opened: panelItem ? panelItem.opened === true : false
+  readonly property bool popoutSwitchClosing: panelItem
+    ? panelItem.popoutSwitchClosing === true
+    : false
+  readonly property bool fixFresh: {
+    var min = (root.settings && root.settings.staleMinutes) ? root.settings.staleMinutes : 10
+    return service.best && service.best.fix_time
+      ? ((Date.now() / 1000) - service.best.fix_time) < (min * 60)
+      : false
+  }
 
   Service {
     id: service
@@ -48,54 +58,29 @@ BarWidget {
     }
   }
 
-  BarIconButton {
+  // Indicator-style chip: sizes/marks like omarchy.indicators entries
+  // (stay-awake / DND / night light) but toggles the location panel on click.
+  BarIndicator {
     id: button
     anchors.fill: parent
     bar: root.bar
-    tooltipText: !service.running
-      ? "Location: daemon stopped"
-      : (!service.best
-          ? "Location: no fix yet"
-          : (root.fixFresh ? "Location: " + service.fixText(service.best)
-                           : "Location: stale · " + service.fixText(service.best)))
+    settings: root.settings || {}
+    indicatorHost: null
+    fontFamily: "Material Symbols Rounded"
 
-    readonly property bool fixHealthy: service.running && service.best && root.fixFresh
+    readonly property bool healthy: service.running && service.best && root.fixFresh
+    readonly property bool broken: !service.running
 
-    iconComponent: Component {
-      Item {
-        id: iconWrapper
-        anchors.fill: parent
+    active: healthy
+    activeText: "\ue1b7"          // Material Symbols: location_searching (crosshair)
+    activeTooltipText: healthy ? "Location: " + service.fixText(service.best)
+                               : "Location: no fix"
+    inactiveText: "\ue1b7"
+    inactiveTooltipText: broken ? "Location: daemon stopped"
+                                : "Location: stale · " + (service.best ? service.fixText(service.best) : "no fix")
 
-        readonly property color iconColor: "red"
-          : (button.fixHealthy
-          ? (root.bar ? root.bar.foreground : Color.foreground)
-          : (!service.running
-              ? (root.bar ? root.bar.urgent : Color.urgent)
-              : (root.bar ? Qt.darker(root.bar.foreground, 1.6) : Qt.darker(Color.foreground, 1.6)))
-
-        Image {
-          id: iconImg
-          anchors.centerIn: parent
-          width: Style.space(11)
-          height: Style.space(11)
-          source: !service.running
-            ? Qt.resolvedUrl("assets/location-disabled.svg")
-            : Qt.resolvedUrl("assets/location.svg")
-          sourceSize.width: 32
-          sourceSize.height: 32
-          fillMode: Image.PreserveAspectFit
-          smooth: true
-          visible: false
-          layer.enabled: true
-        }
-
-        MultiEffect {
-          anchors.fill: iconImg
-          source: iconImg
-          colorization: 1.0
-          colorizationColor: iconWrapper.iconColor
-        }
-      }
+    function toggle() {
+      root.toggle()
     }
 
     onPressed: function(buttonCode) {
@@ -107,12 +92,5 @@ BarWidget {
         root.toggle()
       }
     }
-  }
-
-  readonly property bool fixFresh: {
-    var min = (root.settings && root.settings.staleMinutes) ? root.settings.staleMinutes : 10
-    return service.best && service.best.fix_time
-      ? ((Date.now() / 1000) - service.best.fix_time) < (min * 60)
-      : false
   }
 }
