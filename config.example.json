@@ -1,0 +1,14 @@
+{
+  "port": 9438,
+  "sources": [
+    { "type": "wifi", "name": "wifi", "enabled": true, "interval": 300, "priority": 90 },
+    { "type": "ha", "name": "Phone GPS", "label": "Phone GPS",
+      "url": "http://homeassistant:8123", "token": "YOUR_LONG_LIVED_TOKEN",
+      "entity": "device_tracker.pixel_9_pro",
+      "enabled": true, "interval": 300, "priority": 10 },
+    { "type": "ha", "name": "Vehicle GPS", "label": "Vehicle GPS",
+      "url": "http://homeassistant:8123", "token": "YOUR_LONG_LIVED_TOKEN",
+      "entity": "device_tracker.vehicle",
+      "enabled": true, "interval": 300, "priority": 20 }
+  ]
+}

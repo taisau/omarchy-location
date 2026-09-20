@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+"""omarchy-location CLI."""
+import argparse
+import json
+import pathlib
+import sys
+import time
+import urllib.request
+
+STATE = pathlib.Path.home() / ".local/state/omarchy-location"
+STATUS = STATE / "status.json"
+FIX = STATE / "fix.json"
+
+
+def read_json(path):
+    try:
+        return json.loads(path.read_text())
+    except FileNotFoundError:
+        return None
+    except Exception as e:
+        print("error reading", path.name, "-", e, file=sys.stderr)
+        return None
+
+
+def age_str(ts):
+    if ts is None:
+        return "never"
+    d = time.time() - ts
+    if d < 60:
+        return str(int(d)) + "s ago"
+    if d < 3600:
+        return str(int(d // 60)) + "m ago"
+    return str(int(d // 3600)) + "h ago"
+
+
+def fmt_fix(fx):
+    if fx is None or "lat" not in fx:
+        return "no fix"
+    acc = fx.get("accuracy")
+    acc = ("±" + str(int(acc)) + "m") if acc else "accuracy?"
+    src = fx.get("source", "?").replace("ha:", "HA ").replace("wifi:", "WiFi ")
+    zone = fx.get("zone")
+    return "%.5f,%.5f %s via %s%s" % (fx["lat"], fx["lon"], acc, src,
+                                      (" (" + zone + ")") if zone else "")
+
+
+def daemon_active():
+    out = subprocess_run(["systemctl", "--user", "is-active", "omarchy-location-daemon"])
+    return out.strip() == "active"
+
+
+def subprocess_run(args):
+    import subprocess
+    try:
+        return subprocess.run(args, capture_output=True, text=True, timeout=5).stdout
+    except Exception:
+        return ""
+
+
+def cmd_status(_cfg, args):
+    fix = read_json(FIX)
+    status = read_json(STATUS)
+    print("daemon:", "active" if daemon_active() else "INACTIVE")
+    if fix and "lat" in fix:
+        print("fix  :", fmt_fix(fix))
+        print("age  :", age_str(fix.get("fix_time")))
+    else:
+        print("fix  : none / unavailable")
+    if args.config:
+        cfgp = pathlib.Path.home() / ".config/omarchy-location/config.json"
+        print("config:", cfgp, "exists" if cfgp.exists() else "MISSING")
+        if cfgp.exists():
+            try:
+                cfg = json.loads(cfgp.read_text())
+                print("port :", cfg.get("port"))
+                print("entities:", [s.get("entity") or s.get("name") for s in cfg.get("sources", [])])
+            except Exception as e:
+                print("config parse error:", e)
+    if status:
+        print("last status write:", age_str(status.get("updated")))
+    return 0
+
+
+def cmd_sources(_cfg, args):
+    status = read_json(STATUS)
+    if not status:
+        print("no status file yet; is the daemon enabled?")
+        return 1
+    rows = status.get("sources", [])
+    print("%-24s %-7s %-5s %-9s %-18s %s" % ("SOURCE", "TYPE", "ON", "PRIORITY", "AGE", "ERROR"))
+    for s in rows:
+        lp = s.get("last_poll")
+        err = (s.get("last_error") or "-")[:44]
+        print("%-24s %-7s %-5s %-9s %-18s %s" % (
+            s.get("label", s["key"]), s["type"],
+            "yes" if s.get("enabled") else "no",
+            s.get("priority", "-"), age_str(lp), err))
+    best = status.get("best")
+    if best:
+        print()
+        print("best fix:", fmt_fix({"lat": best["lat"], "lon": best["lon"],
+                                    "accuracy": best.get("accuracy"),
+                                    "source": best.get("source"),
+                                    "zone": best.get("zone")}), age_str(best.get("fix_time")))
+    return 0
+
+
+def cmd_fix(_cfg, args):
+    fix = read_json(FIX)
+    if args.plain:
+        if fix and "lat" in fix:
+            print(f"{fix['lat']},{fix['lon']}")
+            return 0
+        return 1
+    print(json.dumps(fix or {}, indent=2))
+    return 0
+
+
+def cmd_refresh(_cfg, args):
+    port = 9438
+    try:
+        cfg = json.loads((pathlib.Path.home() / ".config/omarchy-location/config.json").read_text())
+        port = int(cfg.get("port", 9438))
+    except Exception:
+        pass
+    try:
+        req = urllib.request.Request(f"http://127.0.0.1:{port}/refresh", method="POST", data=b"")
+        urllib.request.urlopen(req, timeout=3).read()
+        print("refresh queued (daemon will poll in <=5s)")
+        return 0
+    except Exception as e:
+        print("daemon not reachable on 127.0.0.1:" + str(port) + ":", e)
+        return 1
+
+
+def cmd_config_write(_cfg, args):
+    """stdin = JSON config; validates and writes 0600 then reloads daemon."""
+    raw = sys.stdin.read()
+    try:
+        data = json.loads(raw)
+    except Exception as e:
+        print("invalid JSON:", e, file=sys.stderr)
+        return 1
+    if not isinstance(data, dict) or not isinstance(data.get("sources"), list):
+        print('config must be {"port":int,"sources":[...]}', file=sys.stderr)
+        return 1
+    path = pathlib.Path.home() / ".config/omarchy-location/config.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(data, indent=2))
+    os_chmod(tmp)
+    tmp.rename(path)
+    print("config written to", path)
+    # HTTP is muxed inside the daemon; reload happens on mtime watch
+    return 0
+
+
+def os_chmod(path):
+    import os
+    os.chmod(path, 0o600)
+
+
+def main():
+    parser = argparse.ArgumentParser(prog="omarchy-location")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    p = sub.add_parser("status"); p.set_defaults(fn=cmd_status)
+    p = sub.add_parser("sources"); p.set_defaults(fn=cmd_sources)
+    p = sub.add_parser("fix"); p.add_argument("--plain", action="store_true")
+    p.set_defaults(fn=cmd_fix)
+    p = sub.add_parser("refresh"); p.set_defaults(fn=cmd_refresh)
+    p = sub.add_parser("config-write"); p.set_defaults(fn=cmd_config_write)
+    args = parser.parse_args()
+    sys.exit(args.fn(None, args))
+
+
+if __name__ == "__main__":
+    main()

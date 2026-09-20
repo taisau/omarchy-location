@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.taisau.location",
+  "name": "Location",
+  "version": "1.0.0",
+  "author": "John Boyd",
+  "license": "MIT",
+  "description": "Multi-source location resolver for the Omarchy bar: WiFi positioning, Home Assistant device trackers (phone GPS, vehicle GPS), a local geolocation endpoint for Firefox, and a per-source status panel.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Location",
+    "description": "Current fix from configured sources, per-source status, and settings.",
+    "category": "Utilities",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "pollIntervalSec": 10,
+      "staleMinutes": 10
+    },
+    "schema": [
+      {
+        "key": "pollIntervalSec",
+        "type": "integer",
+        "label": "Status polling interval (seconds)",
+        "min": 5,
+        "max": 60,
+        "step": 5,
+        "defaultValue": 10
+      },
+      {
+        "key": "staleMinutes",
+        "type": "integer",
+        "label": "Bar icon considered stale after (minutes)",
+        "min": 3,
+        "max": 120,
+        "step": 1,
+        "defaultValue": 10
+      }
+    ]
+  }
+}

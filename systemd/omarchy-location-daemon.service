@@ -1,0 +1,11 @@
+[Unit]
+Description=omarchy-location resolver (HA/GPS sources + geolocation shim)
+Documentation=file:%h/.config/omarchy/plugins/io.github.taisau.location/README.md
+
+[Service]
+ExecStart=/usr/bin/python3 %h/.config/omarchy/plugins/io.github.taisau.location/bin/omarchy-location-daemon.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
