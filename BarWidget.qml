@@ -55,10 +55,10 @@ BarWidget {
       ? "Location: daemon stopped"
       : (!service.best
           ? "Location: no fix yet"
-          : (service.fixFresh ? "Location: " + service.fixText(service.best)
-                              : "Location: stale · " + service.fixText(service.best)))
+          : (root.fixFresh ? "Location: " + service.fixText(service.best)
+                           : "Location: stale · " + service.fixText(service.best)))
 
-    readonly property bool fixHealthy: service.running && service.best && service.fixFresh
+    readonly property bool fixHealthy: service.running && service.best && root.fixFresh
 
     iconComponent: Component {
       Item {
