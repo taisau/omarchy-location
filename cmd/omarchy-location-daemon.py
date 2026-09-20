@@ -145,6 +145,77 @@ def _http_json(url, token=None, method="GET", body=None, timeout=10):
         return json.loads(resp.read().decode())
 
 
+COARSE_ACC = 1000    # metres — fixes this coarse trigger an on-demand phone poll
+NOTIFY_WAIT = 6      # seconds to wait for the phone to report after nudge
+
+
+def _has_notify_ha():
+    for src in config.get("sources", []):
+        if src.get("type") == "ha" and src.get("enabled", True) and src.get("entity"):
+            return src
+    return None
+
+
+def request_better_fix():
+    """Nudge the HA Companion app(s) to report location now, then poll.
+
+    notify service name derived from the tracker entity id
+    (device_tracker.pixel_9_pro -> mobile_app_pixel_9_pro).
+    """
+    src = _has_notify_ha()
+    if not src or not src.get("url") or not src.get("token"):
+        return
+    entity = src["entity"]
+    if entity and entity.startswith("device_tracker."):
+        device = entity[len("device_tracker."):]
+    else:
+        device = entity
+    service = "mobile_app_" + device
+
+    now = time.time()
+    baseline = {}
+    with lock:
+        for key, st in state.items():
+            fx = st.get("last_fix")
+            baseline[key] = fx["fix_time"] if fx else 0
+
+    # ask every HA-position source's companion (phone) to report now
+    for s in config.get("sources", []):
+        if s.get("type") != "ha" or not s.get("url"):
+            continue
+        e = s.get("entity") or ""
+        dev = e[len("device_tracker."):] if e.startswith("device_tracker.") else e
+        if not dev:
+            continue
+        for message in ("command_bg_location_update", "request_location_update"):
+            try:
+                _http_json(s["url"].rstrip("/") + "/api/services/notify/mobile_app_" + dev,
+                           token=s["token"], method="POST",
+                           body={"message": message, "data": {"priority": "high", "ttl": 0, "push": "sound"}},
+                           timeout=6)
+                break  # first accepted command wins
+            except urllib.error.HTTPError as e:
+                log("notify", message, "->", e.code)
+            except Exception as e:
+                log("notify error:", e)
+
+    # wait (bounded) for the entity to refresh, polling each HA source meanwhile
+    deadline = time.time() + NOTIFY_WAIT
+    while time.time() < deadline:
+        time.sleep(1.5)
+        for s in current_sources:
+            if s.get("type") == "ha" and s.get("enabled"):
+                run_poll(s)
+        try:
+            fix = json.loads(FIX_FILE.read_text())
+        except Exception:
+            continue
+        acc = fix.get("accuracy") or 10**9
+        if "lat" in fix and acc < COARSE_ACC:
+            log("fresh precise fix after nudge: ±%.0fm" % acc)
+            return
+
+
 def poll_ha(src):
     if not src.get("url") or not src.get("token") or not src.get("entity"):
         raise ValueError("incomplete HA source config (url/token/entity)")
@@ -341,6 +412,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
             fix = json.loads(FIX_FILE.read_text())
         except Exception:
             fix = {"error": "no fix"}
+
+        if "lat" not in fix:
+            request_better_fix()
+            fix = json.loads(FIX_FILE.read_text())
+        elif fix.get("accuracy", 10**9) >= COARSE_ACC and _has_notify_ha():
+            # obviously coarse (IP fallback) -> ask the phone for a GPS fix now
+            request_better_fix()
+            fix = json.loads(FIX_FILE.read_text())
+
         if "lat" not in fix:
             self._send(404, {"error": "no fix"})
         else:
