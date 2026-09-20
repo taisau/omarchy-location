@@ -38,7 +38,7 @@ FIX_FILE = STATE_DIR / "fix.json"
 STATUS_FILE = STATE_DIR / "status.json"
 CONFIG_FILE = HOME / ".config/omarchy-location/config.json"
 
-TIE_WINDOW = 30          # seconds within which "freshest" counts as a tie for accuracy decision
+TIE_WINDOW = 30          # seconds — stability margin in "fresh" fallback tiebreaks
 HTTP_PORT_DEFAULT = 9438
 
 lock = threading.Lock()          # guards state
@@ -261,29 +261,25 @@ def run_poll(src):
 # ---------------------------------------------------------------- snapshot --
 
 def pick_best():
-    """freshest fix wins; inside TIE_WINDOW better accuracy wins; then priority."""
-    cands = []
-    for key, st in state.items():
-        fx = st.get("last_fix")
-        if fx and st.get("enabled"):
-            cands.append((fx, st))
+    """Accuracy-first among fixes newer than max_age_sec (config
+    max_age_minutes, default 15). Outside the window (nothing accepting),
+    fall back to the freshest fix (+TIE_WINDOW/priority tiebreak)."""
+    now = time.time()
+    max_age = int(config.get("max_age_minutes", 15)) * 60
+    cands = [(st["last_fix"], st) for st in state.values()
+             if st.get("last_fix") and st.get("enabled")]
     if not cands:
         return None
-    def ordering(c):
-        fx, st = c
-        acc = fx.get("accuracy") or 10**9
-        return (-fx["fix_time"], 0)
-    cands.sort(key=ordering)
-    best_fx, best_st = cands[0]
-    best_t = best_fx["fix_time"]
-    for fx, st in cands[1:]:
-        dt = abs(fx["fix_time"] - best_t)
-        if dt <= TIE_WINDOW:
-            fx_acc = fx.get("accuracy") if fx.get("accuracy") else 10**9
-            b_acc = best_fx.get("accuracy") if best_fx.get("accuracy") else 10**9
-            if fx_acc < b_acc or (fx_acc == b_acc and st["priority"] < best_st["priority"]):
-                best_fx, best_st = fx, st
-    return best_fx
+
+    def acc_of(fx):
+        return fx.get("accuracy") if fx.get("accuracy") else 10**9
+
+    fresh = [(fx, st) for fx, st in cands if (now - fx["fix_time"]) <= max_age]
+    if fresh:
+        fresh.sort(key=lambda c: (acc_of(c[0]), c[1]["priority"], -c[0]["fix_time"]))
+        return fresh[0][0]
+    cands.sort(key=lambda c: (-c[0]["fix_time"], c[1]["priority"]))
+    return cands[0][0]
 
 
 def write_snapshot():
