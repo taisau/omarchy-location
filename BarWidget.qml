@@ -66,7 +66,8 @@ BarWidget {
         id: iconWrapper
         anchors.fill: parent
 
-        readonly property color iconColor: button.fixHealthy
+        readonly property color iconColor: "red"
+          : (button.fixHealthy
           ? (root.bar ? root.bar.foreground : Color.foreground)
           : (!service.running
               ? (root.bar ? root.bar.urgent : Color.urgent)
