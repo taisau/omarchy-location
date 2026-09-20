@@ -57,7 +57,8 @@ def subprocess_run(args):
         return ""
 
 
-def cmd_status(_cfg, args):    fix = read_json(FIX)
+def cmd_status(_cfg, args):
+    fix = read_json(FIX)
     status = read_json(STATUS)
     print("daemon:", "active" if daemon_active() else "INACTIVE")
     if fix and "lat" in fix:
