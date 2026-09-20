@@ -91,7 +91,7 @@ QtObject {
     var enc = root.b64(edited)
     if (!enc)
       return
-    saveProc.command = ["/cmd/sh", "-c",
+    saveProc.command = ["/bin/sh", "-c",
       "printf %s '" + enc + "' | base64 -d | " + root.cliPath + " config-write"]
     saveProc.running = true
   }
@@ -105,7 +105,7 @@ QtObject {
 
   function runCmd(args) {
     if (Array.isArray(args) && args.length === 1) {
-      args = ["/cmd/sh", "-c", args[0]]
+      args = ["/bin/sh", "-c", args[0]]
     }
     var proc = cmdProc
     if (proc.running) {
@@ -128,7 +128,7 @@ QtObject {
 
   property var whichProc: Process {
     id: whichProc
-    command: ["/cmd/sh", "-c",
+    command: ["/bin/sh", "-c",
       "exec timeout 2 " + (root.homeDir ? "/usr/bin/systemctl --user is-active omarchy-location-daemon 2>/dev/null" : "")]
     stdout: StdioCollector {
       id: runCollector
@@ -141,7 +141,7 @@ QtObject {
 
   property var statusProc: Process {
     id: statusProc
-    command: ["/cmd/sh", "-c",
+    command: ["/bin/sh", "-c",
       "exec timeout 3 /usr/bin/head -c 1048576 " + root.stateFile + " 2>/dev/null"]
     stdout: StdioCollector {
       id: statusCollector
@@ -163,7 +163,7 @@ QtObject {
 
   property var configProc: Process {
     id: configProc
-    command: ["/cmd/sh", "-c",
+    command: ["/bin/sh", "-c",
       "exec timeout 3 /usr/bin/head -c 262144 " + root.homeDir + "/.config/omarchy-location/config.json 2>/dev/null"]
     stdout: StdioCollector {
       id: confCollector
