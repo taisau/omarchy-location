@@ -438,6 +438,7 @@ Panel {
               accent: root.accent
               onClicked: root.saveEdit()
             }
+  }
 
           // 4. View mode: current fix + per-source table + actions
           ColumnLayout {
@@ -582,5 +583,4 @@ Panel {
       }
     }
   }
-
 }
