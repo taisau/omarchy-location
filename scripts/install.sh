@@ -110,4 +110,4 @@ JS
 fi
 
 echo "done. verify with:"
-echo "  \$HOME/.config/omarchy/plugins/io.github.taisau.location/bin/omarchy-location status"
+echo "  \$HOME/.config/omarchy/plugins/io.github.taisau.location/cmd/omarchy-location status"
