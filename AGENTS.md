@@ -41,3 +41,11 @@ Multi-source location resolver for Omarchy:
 
 1. Restart Firefox (prefs load from user.js at start).
 2. Visit a location site and allow permission — should return the HA merged fix (check `curl 127.0.0.1:9438/geolocate` for expected coords).
+
+## Author identity = `taisau` (2026-09-20)
+
+- All plugin repos (`omarchy-location`, `omarchy-espanso`, `omarchy-bottom-launcher`) list **taisau** as author: `manifest.json` `author`, LICENSE copyright, README credits, and git author/committer names across rewritten history. The memos manifest (unpublished) too.
+- Git identity for these repos: `user.name=taisau`, `user.email=github@taisau.net` (was `John Boyd` / `john@taisau.net`).
+- History was force-pushed, so old pinned marketplace `verificationCommit` SHAs are gone → re-verification requested: espanso [#7874](https://github.com/omacom/omarchy-plugin-marketplace/issues/7874) (1.0.13, target `7791902`), bottom-launcher [#7875](https://github.com/omacom/omarchy-plugin-marketplace/issues/7875) (1.3.3, target `f6f68e1`); Location submission [#7847](https://github.com/omacom/omarchy-plugin-marketplace/issues/7847) body updated + revalidation comment.
+- Never commit as `John Boyd` in plugin repos again. If a future repo is published, use the taisau identity from the start.
+- Note: the plugin-manager's cached catalog (`~/.cache/omarchy-plugin-manager/catalog.json`) still shows the old author + dead `verificationCommit` until the marketplace regenerates it after verification.
