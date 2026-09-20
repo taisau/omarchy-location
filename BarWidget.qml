@@ -34,6 +34,7 @@ BarWidget {
   }
 
   onBarChanged: injectPanel()
+  console.warn("[taisau.location] BarWidget instantiated")
   onSettingsChanged: injectPanel()
 
   Loader {

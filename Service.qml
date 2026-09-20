@@ -178,5 +178,5 @@ QtObject {
 
   property var cmdProc: Process { id: cmdProc; running: false }
 
-  Component.onCompleted: refresh()
+  Component.onCompleted: { console.warn('[taisau.location] Service instantiated'); refresh() }
 }
