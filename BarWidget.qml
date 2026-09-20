@@ -45,7 +45,6 @@ BarWidget {
 
   onBarChanged: injectPanel()
   onSettingsChanged: injectPanel()
-  Component.onCompleted: console.warn("[taisau.location] BarWidget instantiated")
 
   Loader {
     id: panelLoader
