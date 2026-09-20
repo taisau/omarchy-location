@@ -331,23 +331,35 @@ class Handler(http.server.BaseHTTPRequestHandler):
         body = json.dumps(obj).encode()
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
+    def _fix_response(self):
+        try:
+            fix = json.loads(FIX_FILE.read_text())
+        except Exception:
+            fix = {"error": "no fix"}
+        if "lat" not in fix:
+            self._send(404, {"error": "no fix"})
+        else:
+            self._send(200, {
+                "location": {"lat": fix["lat"], "lng": fix["lon"]},
+                "accuracy": fix.get("accuracy"),
+            })
+
+    def _drain(self):
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+            if n:
+                self.rfile.read(n)
+        except Exception:
+            pass
+
     def do_GET(self):
         if self.path == "/geolocate":
-            try:
-                fix = json.loads(FIX_FILE.read_text())
-            except Exception:
-                fix = {"error": "no fix"}
-            if "lat" not in fix:
-                self._send(404, {"error": "no fix"})
-            else:
-                self._send(200, {
-                    "location": {"lat": fix["lat"], "lng": fix["lon"]},
-                    "accuracy": fix.get("accuracy"),
-                })
+            self._fix_response()
         elif self.path == "/status":
             try:
                 self._send(200, json.loads(STATUS_FILE.read_text()))
@@ -357,11 +369,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._send(404, {"error": "not found"})
 
     def do_POST(self):
-        if self.path == "/refresh":
-            with lock:
-                for st in state.values():
-                    if st.get("enabled"):
-                        st["last_poll"] = 0
+        self._drain()
+        if self.path == "/geolocate":
+            # Firefox's network geolocation provider POSTs here; body ignored
+            self._fix_response()
+        elif self.path == "/refresh":
+            for st in state.values():
+                if st.get("enabled"):
+                    st["last_poll"] = 0
             self._send(202, {"queued": True})
         else:
             self._send(404, {"error": "not found"})
