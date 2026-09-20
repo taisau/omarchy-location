@@ -197,20 +197,17 @@ def read_wifi_aps():
     for line in out.stdout.splitlines():
         if not line.strip():
             continue
-        fields = line.split(":")
-        if len(fields) < 9:
+        # nmcli escapes ':' inside fields as "\:" — BSSID's own colons included
+        fields = line.replace("\\:", "\x1f").split(":")
+        if len(fields) < 3:
             continue
-        bssid = ":".join(fields[:6])          # BSSID = first 6 hex groups
-        if any(len(f) != 2 for f in fields[:6]):
-            continue
-        sig, freq = fields[-2], fields[-1]
-        try:
-            sigpct = int(sig)
-            int(freq)
-        except ValueError:
-            continue
+        bssid = fields[0].replace("\x1f", ":")
         mac = bssid.lower()
-        if mac.count(":") != 5 or ".:" in mac[5]:
+        if mac.count(":") != 5:
+            continue
+        try:
+            sigpct = int(fields[-1])
+        except ValueError:
             continue
         aps.append({"macAddress": mac, "pct": max(0, min(100, sigpct))})
     return aps
