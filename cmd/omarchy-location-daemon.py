@@ -33,6 +33,7 @@ import urllib.request
 
 HOME = pathlib.Path.home()
 STATE_DIR = HOME / ".local/state/omarchy-location"
+STATE_DIR.mkdir(parents=True, exist_ok=True)
 FIX_FILE = STATE_DIR / "fix.json"
 STATUS_FILE = STATE_DIR / "status.json"
 CONFIG_FILE = HOME / ".config/omarchy-location/config.json"
@@ -169,25 +170,27 @@ def poll_ha(src):
 
 
 def _parse_ha_time(raw):
+    import calendar
     for fmt in ("%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z"):
         try:
-            return time.mktime(time.strptime(raw, fmt))
+            return calendar.timegm(time.strptime(raw, fmt))  # RFC3339 is UTC-anchored
         except (ValueError, TypeError):
             pass
     return None
 
 
 def read_wifi_aps():
-    """nmcli -t wifi scan -> list of {macAddress, signal%}. Robust to escaped SSIDs.
+    """Force an active WiFi rescan, then read AP list. Robust to escaped SSIDs.
 
-    nmcli -t emitshex:hex:hex:hex:hex:hex:<ssid>:<signal>:<freq> per row, and an
-    SSID containing a literal ":" is "\\:"-escaped, so we can't naively split by
-    ':'. We instead grab the leading 6 colon fields as the BSSID, split the
-    trailing portion backwards by the two right-most colon groups (freq, sig).
+    nmcli -t emits hex:hex:hex:hex:hex:hex:<ssid>:<signal>:<freq...> rows; an
+    SSID containing a literal ":" is "\\:"-escaped, so we split defensively.
     """
+    subprocess.run(
+        ["nmcli", "dev", "wifi", "rescan"], capture_output=True, text=True, timeout=20
+    )
+    time.sleep(2)
     out = subprocess.run(
-        ["nmcli", "-t", "--rescan", "yes", "-f",
-         "BSSID,SSID,SIGNAL", "dev", "wifi"],
+        ["nmcli", "-t", "-f", "BSSID,SSID,SIGNAL", "dev", "wifi"],
         capture_output=True, text=True, timeout=45,
     )
     aps = []

@@ -57,8 +57,7 @@ def subprocess_run(args):
         return ""
 
 
-def cmd_status(_cfg, args):
-    fix = read_json(FIX)
+def cmd_status(_cfg, args):    fix = read_json(FIX)
     status = read_json(STATUS)
     print("daemon:", "active" if daemon_active() else "INACTIVE")
     if fix and "lat" in fix:
@@ -163,7 +162,7 @@ def os_chmod(path):
 def main():
     parser = argparse.ArgumentParser(prog="omarchy-location")
     sub = parser.add_subparsers(dest="cmd", required=True)
-    p = sub.add_parser("status"); p.set_defaults(fn=cmd_status)
+    p = sub.add_parser("status"); p.add_argument("--config", action="store_true"); p.set_defaults(fn=cmd_status)
     p = sub.add_parser("sources"); p.set_defaults(fn=cmd_sources)
     p = sub.add_parser("fix"); p.add_argument("--plain", action="store_true")
     p.set_defaults(fn=cmd_fix)
